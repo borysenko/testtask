@@ -1,0 +1,53 @@
+version: '2.2'
+services:
+
+  php:
+    build:
+      dockerfile: Dockerfile-${DOCKERFILE_FLAVOUR}
+      context: 'php'
+      args:
+        - PHP_BASE_IMAGE_VERSION
+        - X_LEGACY_GD_LIB
+        - PECL_XDEBUG_INSTALL_SUFFIX
+        - PECL_MONGODB_INSTALL_SUFFIX
+    image: ${PHP_IMAGE_NAME}:${PHP_BASE_IMAGE_VERSION}${PHP_IMAGE_VERSION_SUFFIX}
+    environment:
+      - GITHUB_API_TOKEN=${GITHUB_API_TOKEN}
+      - PHP_ENABLE_XDEBUG
+      - TEST_RUNTIME_PATH=/tmp/runtime
+    volumes:
+      - ./../tests:/tests:delegated
+      # Application testing
+      - ./../:/app:delegated
+      # Composer cache
+      - ~/.composer-docker/cache:/root/.composer/cache:delegated
+    links:
+      - db
+    networks:
+      - default
+  db:
+    image: mysql
+    ports:
+      - "3306:3306"
+    command: mysqld --sql_mode="" --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: test
+      MYSQL_USER: user
+      MYSQL_PASSWORD: test
+      MYSQL_ROOT_PASSWORD: test
+    volumes:
+      - ./dump:/docker-entrypoint-initdb.d
+      - ./db:/var/lib/mysql
+    networks:
+      - default
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    links:
+      - db:db
+    ports:
+      - 8000:80
+    environment:
+      MYSQL_USER: user
+      MYSQL_PASSWORD: test
+      MYSQL_ROOT_PASSWORD: test
+      UPLOAD_LIMIT: 1G
